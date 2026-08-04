@@ -1,0 +1,180 @@
+-- 加载Orion库
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Qanuir/orion-ui/refs/heads/main/source.lua"))()
+
+-- 创建ESP窗口
+local Window = OrionLib:MakeWindow({
+    Name = "北极星 - ESP",
+    HidePremium = false,
+    SaveConfig = true,
+    ConfigFolder = "MyScriptESP"
+})
+
+local ESPTab = Window:MakeTab({
+    Name = "ESP",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+ESPTab:AddLabel("════════════════════════")
+ESPTab:AddLabel("  ESP 功 能")
+ESPTab:AddLabel("════════════════════════")
+
+-- ====== 变量 ======
+local ESPEnabled = false
+local ESPLines = {}
+local Player = game.Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+
+-- ====== 创建ESP线条 ======
+local function CreateESP()
+    -- 清除旧线条
+    for _, line in pairs(ESPLines) do
+        if line then
+            line:Remove()
+        end
+    end
+    ESPLines = {}
+    
+    if not ESPEnabled then return end
+    
+    -- 遍历所有玩家
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= Player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = player.Character.HumanoidRootPart
+            
+            -- 创建线条
+            local line = Drawing.new("Line")
+            line.Color = Color3.fromRGB(255, 0, 0)
+            line.Thickness = 2
+            line.Transparency = 1
+            line.Visible = true
+            table.insert(ESPLines, line)
+            
+            -- 创建名字标签
+            local text = Drawing.new("Text")
+            text.Text = player.Name
+            text.Color = Color3.fromRGB(255, 255, 255)
+            text.Size = 16
+            text.Center = true
+            text.Visible = true
+            table.insert(ESPLines, text)
+            
+            -- 更新ESP位置
+            local conn
+            conn = RunService.RenderStepped:Connect(function()
+                if not ESPEnabled or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+                    line.Visible = false
+                    text.Visible = false
+                    return
+                end
+                
+                local localRoot = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                if not localRoot then
+                    line.Visible = false
+                    text.Visible = false
+                    return
+                end
+                
+                local pos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+                local localPos, localOnScreen = Camera:WorldToViewportPoint(localRoot.Position)
+                
+                if onScreen and localOnScreen then
+                    -- 更新线条位置（从玩家到屏幕底部）
+                    line.From = Vector2.new(pos.X, pos.Y)
+                    line.To = Vector2.new(localPos.X, localPos.Y)
+                    line.Visible = true
+                    
+                    -- 更新名字位置
+                    text.Position = Vector2.new(pos.X, pos.Y - 30)
+                    text.Visible = true
+                else
+                    line.Visible = false
+                    text.Visible = false
+                end
+            end)
+            table.insert(ESPLines, conn)
+        end
+    end
+end
+
+-- ====== ESP开关 ======
+ESPTab:AddToggle({
+    Name = "启用ESP",
+    Default = false,
+    Callback = function(Value)
+        ESPEnabled = Value
+        if Value then
+            CreateESP()
+            print("ESP已开启")
+        else
+            -- 清除所有ESP
+            for _, item in pairs(ESPLines) do
+                if item then
+                    if item:IsA("Drawing") then
+                        item:Remove()
+                    elseif type(item) == "function" or type(item) == "thread" then
+                        pcall(function() item:Disconnect() end)
+                    end
+                end
+            end
+            ESPLines = {}
+            print("ESP已关闭")
+        end
+    end
+})
+
+-- ====== 颜色选择 ======
+ESPTab:AddDropdown({
+    Name = "ESP颜色",
+    Default = "红色",
+    Options = {"红色", "蓝色", "绿色", "黄色", "紫色", "白色"},
+    Callback = function(Value)
+        local colorMap = {
+            ["红色"] = Color3.fromRGB(255, 0, 0),
+            ["蓝色"] = Color3.fromRGB(0, 0, 255),
+            ["绿色"] = Color3.fromRGB(0, 255, 0),
+            ["黄色"] = Color3.fromRGB(255, 255, 0),
+            ["紫色"] = Color3.fromRGB(255, 0, 255),
+            ["白色"] = Color3.fromRGB(255, 255, 255)
+        }
+        
+        -- 更新所有线条颜色
+        for i = 1, #ESPLines, 2 do
+            if ESPLines[i] and ESPLines[i]:IsA("Line") then
+                ESPLines[i].Color = colorMap[Value] or Color3.fromRGB(255, 0, 0)
+            end
+        end
+        print("ESP颜色已改为:", Value)
+    end
+})
+
+-- ====== 刷新ESP按钮 ======
+ESPTab:AddButton({
+    Name = "刷新ESP",
+    Callback = function()
+        if ESPEnabled then
+            CreateESP()
+            print("ESP已刷新")
+        else
+            print("请先开启ESP")
+        end
+    end
+})
+
+ESPTab:AddLabel("════════════════════════")
+ESPTab:AddLabel("  操 作 说 明")
+ESPTab:AddLabel("  开启后显示其他玩家位置")
+ESPTab:AddLabel("  线条指向玩家方向")
+ESPTab:AddLabel("════════════════════════")
+
+-- ====== 初始化 ======
+OrionLib:Init()
+
+wait(0.5)
+OrionLib:MakeNotification({
+    Name = "🌟 ESP已加载",
+    Content = "北极星 - ESP功能已启动",
+    Image = "rbxassetid://4483345998",
+    Time = 3
+})
